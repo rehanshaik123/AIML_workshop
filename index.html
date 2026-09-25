@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>From Rules to Reasoning — Workshop Path</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3F4FC; --glow1:#DCE8FF; --glow2:#EEE2FF;
+    --panel:#FFFFFF; --node-plate:#FFFFFF; --text:#12142B; --text-dim:#5A5E80; --locked:#E1E4F4; --border:rgba(18,20,43,0.14);
+    --modal-bg:#171A33; --modal-bg-2:#20233F; --modal-text:#F1F2FF; --modal-text-dim:#A6ABD4; --modal-border:rgba(255,255,255,0.10);
+    --session:#2DD4BF; --session-soft:rgba(45,212,191,0.15);
+    --dotgrid:#12142B; --shadow:rgba(18,20,43,0.18);
+    --font-head:'Space Grotesk', system-ui, sans-serif; --font-body:'Inter', system-ui, sans-serif;
+    --row-h:225px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#080A1C; --glow1:#16204A; --glow2:#2A1748;
+      --panel:#12142B; --node-plate:#12142B; --text:#EDEFFD; --text-dim:#868CBE; --locked:#151832; --border:rgba(237,239,253,0.14);
+      --modal-bg:#0E1026; --modal-bg-2:#181B36; --modal-text:#F1F2FF; --modal-text-dim:#A6ABD4; --modal-border:rgba(255,255,255,0.08);
+      --session:#42E8D2; --session-soft:rgba(66,232,210,0.15);
+      --dotgrid:#EDEFFD; --shadow:rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#080A1C; --glow1:#16204A; --glow2:#2A1748;
+    --panel:#12142B; --node-plate:#12142B; --text:#EDEFFD; --text-dim:#868CBE; --locked:#151832; --border:rgba(237,239,253,0.14);
+    --modal-bg:#0E1026; --modal-bg-2:#181B36; --modal-text:#F1F2FF; --modal-text-dim:#A6ABD4; --modal-border:rgba(255,255,255,0.08);
+    --session:#42E8D2; --session-soft:rgba(66,232,210,0.15);
+    --dotgrid:#EDEFFD; --shadow:rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(circle at 10% 6%, var(--glow1) 0%, transparent 42%),
+      radial-gradient(circle at 92% 80%, var(--glow2) 0%, transparent 46%),
+      var(--bg);
+    color:var(--text); font-family:var(--font-body); -webkit-font-smoothing:antialiased; min-height:100vh; position:relative;
+  }
+  body::before{
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image:radial-gradient(circle, var(--dotgrid) 1px, transparent 1px);
+    background-size:26px 26px; opacity:0.05;
+  }
+
+  .page{ max-width:960px; margin:0 auto; padding:40px 20px 40px; position:relative; z-index:1; }
+
+  .sound-toggle{
+    position:absolute; top:36px; right:20px; width:38px; height:38px; border-radius:50%;
+    border:1px solid var(--border); background:var(--locked); color:var(--text); font-size:1.05rem; cursor:pointer;
+  }
+
+  .hero{ text-align:center; margin-bottom:22px; }
+  .hero h1{
+    font-family:var(--font-head); font-weight:700; font-size:clamp(2rem,5vw,3rem); margin:0 0 8px; letter-spacing:-0.01em;
+    background:linear-gradient(90deg,#3AA0FF,#B24BFF,#FF4B91); -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .hero p{ font-size:0.96rem; color:var(--text-dim); margin:0 0 18px; }
+
+  .progress-wrap{ max-width:340px; margin:0 auto; }
+  .progress-label{ font-size:0.82rem; color:var(--text-dim); margin-bottom:7px; }
+  .progress-track{ height:7px; border-radius:100px; background:var(--locked); overflow:hidden; }
+  .progress-fill{ height:100%; border-radius:100px; background:linear-gradient(90deg,#3AA0FF,#B24BFF,#FF4B91); width:0%; transition:width .5s ease; }
+
+  .map-wrap{ position:relative; margin:18px 0 8px; }
+  .map-svg{ position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+  .route{ fill:none; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; transition:opacity .4s ease; }
+  .route-locked{ stroke:var(--text-dim); opacity:0.2; stroke-dasharray:1 7; }
+  .route-lit{ stroke:url(#routeGrad); opacity:0.95; filter:drop-shadow(0 0 5px rgba(255,255,255,0.3)); }
+
+  @keyframes nodeIn{ from{ opacity:0; transform:translate(-50%,-50%) scale(0.5); } to{ opacity:1; transform:translate(-50%,-50%) scale(1); } }
+  .entrance{ animation:nodeIn .5s cubic-bezier(.34,1.56,.64,1) backwards; }
+  @media (prefers-reduced-motion: reduce){ .entrance{ animation:none; } }
+
+  .nodes-layer{ position:absolute; inset:0; }
+
+  .orb{ position:absolute; transform:translate(-50%,-50%); z-index:6; pointer-events:none; }
+  .orb.animated{ transition:left 2.3s cubic-bezier(.45,0,.15,1), top 2.3s cubic-bezier(.45,0,.15,1); }
+  .orb-core{
+    display:block; width:16px; height:16px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #fff, hsl(var(--hue,210),90%,62%) 60%);
+    box-shadow:0 0 14px 4px hsla(var(--hue,210),90%,62%,0.6);
+    animation:orbPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes orbPulse{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.22); } }
+  .orb.arrived .orb-core{ animation:orbArrive .6s ease; }
+  @keyframes orbArrive{ 0%{ transform:scale(1); } 45%{ transform:scale(1.9); } 100%{ transform:scale(1); } }
+
+  .level-node{
+    position:absolute; transform:translate(-50%,-50%);
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-body); z-index:2;
+  }
+  .node-visual{ position:relative; }
+  .node-plate{ position:absolute; inset:-14%; border-radius:50%; background:var(--node-plate); box-shadow:0 4px 14px var(--shadow); }
+  .node-shape{
+    width:100%; height:100%; position:relative; background:var(--node-plate); border:2px solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    transition:background .3s ease, box-shadow .3s ease, border-color .3s ease;
+  }
+  .shape-circle{ border-radius:50%; }
+  .node-shape-svg{ background:none; border:none; }
+  .poly-svg{ width:100%; height:100%; display:block; overflow:visible; }
+  .poly-fill{ fill:var(--node-plate); stroke:var(--border); stroke-width:4; transition:fill .3s ease, stroke .3s ease, filter .3s ease; }
+  .node-current .poly-fill{ fill:hsl(var(--hue,210),82%,60%); stroke:hsl(var(--hue,210),88%,68%); filter:drop-shadow(0 0 10px hsla(var(--hue,210),85%,60%,0.6)); }
+  .node-done .poly-fill{ fill:hsl(var(--hue,210),68%,48%); stroke:hsl(var(--hue,210),78%,58%); }
+  .node-locked .poly-fill{ opacity:0.75; }
+  .poly-shine{ fill:rgba(255,255,255,0.4); opacity:0; transition:opacity .3s ease; }
+  .node-current .poly-shine, .node-done .poly-shine{ opacity:1; }
+  .shape-target{ border-radius:50%; }
+  .shape-target::after{ content:''; position:absolute; inset:32%; border-radius:50%; background:radial-gradient(circle at 32% 26%, hsl(var(--hue,210),95%,74%), hsl(var(--hue,210),75%,48%) 75%); transition:background .3s ease; }
+  .node-locked .shape-target::after{ background:var(--text-dim); opacity:0.6; }
+
+  .node-current .node-shape{
+    background:radial-gradient(circle at 32% 26%, hsl(var(--hue,210),95%,74%), hsl(var(--hue,210),75%,48%) 75%);
+    border-color:hsl(var(--hue,210),85%,64%);
+    box-shadow:0 0 28px hsla(var(--hue,210),85%,60%,0.6), inset 0 2px 6px rgba(255,255,255,0.3);
+  }
+  .node-done .node-shape{
+    background:radial-gradient(circle at 32% 26%, hsl(var(--hue,210),78%,60%), hsl(var(--hue,210),62%,38%) 75%);
+    border-color:hsl(var(--hue,210),78%,54%);
+    box-shadow:0 4px 12px hsla(var(--hue,210),60%,30%,0.4);
+  }
+  .node-locked .node-shape{ opacity:0.75; }
+
+  .cluster{ position:relative; width:100%; height:100%; }
+  .cluster-dot{ position:absolute; width:58%; height:58%; border-radius:50%; background:var(--node-plate); border:2px solid var(--border); transition:background .3s ease, box-shadow .3s ease; }
+  .cluster-dot.a{ top:0; left:21%; } .cluster-dot.b{ bottom:0; left:0; } .cluster-dot.c{ bottom:0; right:0; }
+  .node-current .cluster-dot{
+    background:radial-gradient(circle at 32% 26%, hsl(var(--hue,210),95%,74%), hsl(var(--hue,210),75%,48%) 75%);
+    border-color:hsl(var(--hue,210),85%,64%); box-shadow:0 0 14px hsla(var(--hue,210),85%,60%,0.5);
+  }
+  .node-done .cluster-dot{
+    background:radial-gradient(circle at 32% 26%, hsl(var(--hue,210),78%,60%), hsl(var(--hue,210),62%,38%) 75%);
+    border-color:hsl(var(--hue,210),78%,54%);
+  }
+  .node-locked .cluster-dot{ opacity:0.75; }
+  .cluster-icon{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:2; }
+
+  .node-icon{ font-size:1.55rem; pointer-events:none; z-index:2; filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25)); }
+
+  .node-current .node-visual::after{
+    content:''; position:absolute; inset:-10%; border-radius:50%;
+    border:2px solid hsl(var(--hue,210),85%,60%); opacity:0.5; animation:pulseRing 1.9s ease-out infinite;
+  }
+  @keyframes pulseRing{ 0%{ transform:scale(0.9); opacity:0.55; } 100%{ transform:scale(1.28); opacity:0; } }
+
+  .node-number{
+    position:absolute; top:-6px; left:-6px; width:22px; height:22px; border-radius:50%; z-index:3;
+    background:var(--modal-bg); border:1.5px solid var(--modal-border);
+    font-size:0.68rem; font-weight:700; display:flex; align-items:center; justify-content:center; color:var(--modal-text);
+  }
+  .node-check{
+    position:absolute; bottom:-6px; right:-6px; width:22px; height:22px; border-radius:50%; z-index:3;
+    background:hsl(var(--hue,210),75%,50%); color:#fff; font-size:0.72rem; font-weight:700;
+    display:flex; align-items:center; justify-content:center; animation:checkPop .35s ease;
+  }
+  @keyframes checkPop{ 0%{ transform:scale(0); } 70%{ transform:scale(1.25); } 100%{ transform:scale(1); } }
+
+  .node-label{ font-family:var(--font-head); font-size:0.82rem; font-weight:600; text-align:center; line-height:1.2; color:var(--text); max-width:120px; }
+  .node-locked .node-label{ color:var(--text-dim); font-weight:500; }
+
+  @media (prefers-reduced-motion: reduce){
+    .node-current .node-visual::after{ animation:none; opacity:0.3; }
+    .orb-core{ animation:none; }
+    .orb.arrived .orb-core{ animation:none; }
+    .node-check{ animation:none; }
+    .orb.animated{ transition:none; }
+  }
+
+  .session-node{
+    position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:4px;
+    background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-body); z-index:1;
+  }
+  .session-plate{ position:absolute; inset:-10%; border-radius:50%; background:var(--node-plate); box-shadow:0 4px 12px var(--shadow); }
+  .diamond-shape{
+    width:44px; height:44px; position:relative; clip-path:polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    background:var(--session-soft); border:2px solid var(--session);
+    display:flex; align-items:center; justify-content:center; transition:transform .15s ease;
+  }
+  .session-node:hover .diamond-shape{ transform:scale(1.07); }
+  .session-icon{ font-size:0.95rem; z-index:2; }
+  .session-label{ font-size:0.68rem; font-weight:600; color:var(--session); text-align:center; max-width:90px; }
+
+  .legend{ display:flex; flex-wrap:wrap; gap:16px; justify-content:center; padding:16px 0 6px; font-size:0.8rem; color:var(--text-dim); }
+  .legend-item{ display:flex; align-items:center; gap:6px; }
+  .dot{ width:11px; height:11px; border-radius:3px; display:inline-block; }
+  .dot-locked{ background:var(--locked); border:1.5px solid var(--text-dim); }
+  .dot-current{ background:hsla(210,80%,55%,0.3); border:1.5px solid hsl(210,85%,60%); }
+  .dot-done{ background:hsla(210,65%,45%,0.5); border:1.5px solid hsl(210,75%,55%); }
+
+  .footer{ text-align:center; padding:10px 0 6px; }
+  .reset-btn{ background:none; border:none; color:var(--text-dim); text-decoration:underline; font-size:0.78rem; cursor:pointer; padding:6px; }
+  .reset-btn:hover{ color:var(--text); }
+
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(3,4,15,0.6); display:flex; align-items:center; justify-content:center;
+    padding:20px; opacity:0; pointer-events:none; transition:opacity .2s ease; z-index:100;
+  }
+  .modal-backdrop.open{ opacity:1; pointer-events:auto; }
+  body.modal-open{ overflow:hidden; }
+  .modal{
+    background:linear-gradient(160deg, var(--modal-bg), var(--modal-bg-2)); color:var(--modal-text); border-radius:18px;
+    max-width:460px; width:100%; max-height:86vh; overflow-y:auto; padding:26px; position:relative;
+    border:1px solid var(--modal-border); transform:translateY(12px); transition:transform .2s ease;
+    box-shadow:0 24px 60px rgba(0,0,0,0.45);
+  }
+  .modal-backdrop.open .modal{ transform:translateY(0); }
+  .modal-close{
+    position:absolute; top:14px; right:14px; width:30px; height:30px; border-radius:50%;
+    border:1px solid var(--modal-border); background:transparent; color:var(--modal-text); font-size:0.95rem; cursor:pointer; line-height:1;
+  }
+  .modal-head{ display:flex; gap:12px; align-items:flex-start; margin-bottom:4px; padding-right:30px; }
+  .modal-icon{ font-size:1.8rem; line-height:1; }
+  .modal-kicker{ margin:0 0 3px; font-size:0.78rem; color:var(--modal-text-dim); min-height:1em; }
+  .modal h2{ margin:0; font-family:var(--font-head); font-size:1.3rem; }
+  .modal-duration{ font-size:0.76rem; color:var(--modal-text-dim); margin:10px 0 16px; }
+  .modal-section{ margin-bottom:13px; }
+  .modal-section h3{ font-size:0.78rem; margin:0 0 4px; color:var(--modal-text-dim); font-weight:600; }
+  .modal-section p{ margin:0; font-size:0.93rem; line-height:1.5; }
+  .modal-launch{
+    width:100%; margin-top:10px; padding:12px; border-radius:10px; border:2px solid #4C7CFF;
+    background:#4C7CFF; color:#fff; font-weight:700; font-size:0.92rem; cursor:pointer;
+  }
+  .modal-launch:disabled{ background:transparent; color:var(--modal-text-dim); opacity:0.6; cursor:not-allowed; }
+  .modal-launch-hint{ font-size:0.72rem; opacity:0.65; margin:6px 0 0; text-align:center; }
+  .modal-toggle{
+    width:100%; margin-top:8px; padding:12px; border-radius:10px; border:2px solid hsl(var(--hue,210),75%,55%);
+    background:hsl(var(--hue,210),75%,55%); color:#0B0C1A; font-weight:700; font-size:0.92rem; cursor:pointer;
+  }
+  .modal[data-status="done"] .modal-toggle{ background:transparent; color:var(--modal-text); }
+  .modal-toggle:hover, .modal-launch:not(:disabled):hover{ filter:brightness(1.08); }
+  .modal[data-mode="session"] .modal-section:nth-of-type(2),
+  .modal[data-mode="session"] .modal-section:nth-of-type(3),
+  .modal[data-mode="session"] .modal-launch,
+  .modal[data-mode="session"] .modal-launch-hint,
+  .modal[data-mode="session"] .modal-toggle,
+  .modal[data-mode="session"] .modal-duration{ display:none; }
+  .modal-toggle:focus-visible, .modal-close:focus-visible, .modal-launch:focus-visible{ outline:3px solid #4C7CFF; outline-offset:2px; }
+
+  .toast{
+    position:fixed; left:50%; bottom:22px; transform:translate(-50%, 130%);
+    background:var(--modal-bg); color:var(--modal-text); padding:13px 20px; border-radius:12px;
+    border:1px solid var(--modal-border); box-shadow:0 10px 30px var(--shadow);
+    font-size:0.9rem; font-weight:600; transition:transform .35s ease; z-index:300; max-width:88vw; text-align:center;
+  }
+  .toast.show{ transform:translate(-50%, 0); }
+
+  .spark{ position:fixed; width:6px; height:6px; border-radius:50%; pointer-events:none; z-index:200; animation:sparkPop .7s ease-out forwards; }
+  @keyframes sparkPop{ 0%{ transform:translate(0,0) scale(1); opacity:1; } 100%{ transform:translate(var(--dx),var(--dy)) scale(0.3); opacity:0; } }
+
+  @media (max-width:640px){
+    :root{ --row-h:172px; }
+    .page{ padding:32px 14px 30px; }
+    .sound-toggle{ top:32px; right:14px; width:34px; height:34px; }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <button class="sound-toggle" id="soundToggle" type="button" aria-label="Toggle sound">🔊</button>
+    <header class="hero">
+      <h1>From Rules to Reasoning</h1>
+      <p>Eight stages, three hours — from rule-based logic to multi-agent systems.</p>
+      <div class="progress-wrap">
+        <div class="progress-label" id="progressText">0 of 8 completed</div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
+    </header>
+
+    <main class="map-wrap" id="mapWrap">
+      <svg class="map-svg" id="mapSvg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <defs><linearGradient id="routeGrad" x1="0" y1="100%" x2="0" y2="0%"></linearGradient></defs>
+        <g id="routeLayer"></g>
+      </svg>
+      <div class="nodes-layer" id="nodesLayer"></div>
+      <div class="orb" id="orb"><span class="orb-core"></span></div>
+    </main>
+
+    <section class="legend" aria-label="Legend">
+      <div class="legend-item"><span class="dot dot-locked"></span> Locked</div>
+      <div class="legend-item"><span class="dot dot-current"></span> In progress</div>
+      <div class="legend-item"><span class="dot dot-done"></span> Completed</div>
+    </section>
+
+    <footer class="footer">
+      <button class="reset-btn" id="resetBtn" type="button">↺ Reset progress</button>
+    </footer>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" id="modal">
+      <button class="modal-close" id="modalClose" aria-label="Close">✕</button>
+      <div class="modal-head">
+        <span class="modal-icon" id="modalIcon"></span>
+        <div>
+          <p class="modal-kicker" id="modalKicker"></p>
+          <h2 id="modalTitle"></h2>
+        </div>
+      </div>
+      <p class="modal-duration" id="modalDuration"></p>
+      <div class="modal-section"><h3 id="modalSection1Title">Before this stage</h3><p id="modalCurrent"></p></div>
+      <div class="modal-section"><h3>What happens</h3><p id="modalProgression"></p></div>
+      <div class="modal-section"><h3>What's next</h3><p id="modalNext"></p></div>
+      <button class="modal-launch" id="modalLaunch" type="button"></button>
+      <p class="modal-launch-hint" id="modalLaunchHint"></p>
+      <button class="modal-toggle" id="modalToggle" type="button"></button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  var STORAGE_KEY = 'aiml-workshop-progress-v1';
+  var SOUND_KEY = 'aiml-workshop-sound-v1';
+
+  // Edit content here — names, demo ideas, pacing, and resourceUrl (link to your slides/PDF/doc).
+  // shape: 'circle' | 'triangle' | 'diamond' | 'pentagon' | 'hexagon' | 'octagon' | 'target' | 'cluster'
+  var LEVELS = [
+    { kicker:'', name:'Introduction', icon:'⚙️', shape:'circle', duration:'~15 min', resourceUrl:'',
+      current:"Students walk in knowing how to code — if/else, loops, functions — a world where every output is hand-written by a human.",
+      progression:"Run a hand-coded \"spam detector\" live and let the audience break it with a trick message, then solve the same problem with a model that learns from examples.",
+      next:"Once the rule-based system visibly fails, the room is primed to ask how a machine could learn the rule itself." },
+    { kicker:'Level 1', name:'Supervised Learning', icon:'🎯', shape:'triangle', duration:'~20 min', resourceUrl:'',
+      current:"They've just watched a hard-coded system break, and they're skeptical a machine can \"learn\" anything.",
+      progression:"Collect labelled examples live from the audience, train a simple classifier in real time, then test it on a message someone makes up on the spot.",
+      next:"The same idea runs medical-diagnosis and credit-approval systems today. But what if nobody's around to label the data for you?" },
+    { kicker:'Level 2', name:'Unsupervised Learning', icon:'🧩', shape:'diamond', duration:'~20 min', resourceUrl:'',
+      current:"They understand learning from labels — and just heard the question \"what if there are none?\"",
+      progression:"Run a quick quiz on the room itself, plot the answers live, and let a clustering pass group students into \"types\" nobody predefined.",
+      next:"The same logic drives customer segmentation and fraud detection at scale. What about deciding what to do next, not just finding structure in the past?" },
+    { kicker:'Level 3', name:'Reinforcement Learning', icon:'🕹️', shape:'pentagon', duration:'~20 min', resourceUrl:'',
+      current:"They've now seen two ways to learn from existing data — both still passive.",
+      progression:"Drop a clueless agent into a simple maze on-screen. The audience shouts reward or penalty after every move, and everyone watches its strategy improve within minutes.",
+      next:"This trains AlphaGo-style game AI and real robots. Every \"brain\" so far has been simple math — what if it were built more like an actual one?" },
+    { kicker:'Level 4', name:'Neural Networks', icon:'👁️', shape:'hexagon', duration:'~20 min', resourceUrl:'',
+      current:"They know the three core learning styles now — the missing piece is what the \"brain\" itself looks like.",
+      progression:"Live webcam demo: a neural net reads hand gestures or objects volunteers hold up, with a quick peek at the layers so it doesn't feel like a magic trick.",
+      next:"This powers facial recognition, medical imaging, self-driving perception. Vision is one sense — what happens when the network reads and writes language instead?" },
+    { kicker:'Level 5', name:'Generative AI', icon:'💬', shape:'octagon', duration:'~20 min', resourceUrl:'',
+      current:"They've just seen a network that can see — the jump to one that reads and writes is next.",
+      progression:"Throw audience-written prompts at a language model live on-screen, including a couple picked to show where it breaks, not just where it shines.",
+      next:"Real copilots and assistants are built this way. Right now this model only responds — what if it could act on its own?" },
+    { kicker:'Level 6', name:'Agentic Systems', icon:'🤖', shape:'target', duration:'~20 min', resourceUrl:'',
+      current:"They've seen a model that can talk — now it needs a goal and the ability to act on it.",
+      progression:"Hand one agent a single real goal the audience picks, and watch it plan, use a tool, and correct itself across several steps live.",
+      next:"Real autonomous coding and research agents run today. One agent is powerful — what happens when several work together?" },
+    { kicker:'Level 7', name:'Multi-Agent Systems', icon:'🕸️', shape:'cluster', duration:'~20 min', resourceUrl:'',
+      current:"They understand a single autonomous agent — the last idea is coordination between many.",
+      progression:"Split one audience-chosen task across several agents live — a manager delegating to specialised workers and checking their results.",
+      next:"This is the frontier they walk out to build toward — full circle from the rule-based logic where the workshop began." }
+  ];
+
+  var SESSION_DESC = "Step into the audience — take questions, do a quick show of hands, keep the energy up before the next stage.";
+  var BREAKS = [ { after: 2 }, { after: 4 }, { after: 6 } ];
+
+  var N = LEVELS.length;
+
+  var SEQ = [];
+  (function buildSequence(){
+    for (var i = 0; i < N; i++){
+      SEQ.push({ kind:'level', levelIndex:i });
+      for (var b = 0; b < BREAKS.length; b++){
+        if (BREAKS[b].after === i) SEQ.push({ kind:'session', breakIndex:b });
+      }
+    }
+  })();
+  var M = SEQ.length;
+  var levelSeqIndex = {};
+  SEQ.forEach(function(e, si){ if (e.kind === 'level') levelSeqIndex[e.levelIndex] = si; });
+
+  function hueForLevel(i){ return Math.round(200 + i * (330 - 200) / (N - 1)); }
+  function getAmp(){ try { return window.innerWidth < 640 ? 15 : 24; } catch(e){ return 24; } }
+  function getY(si){ return 94 - si * (88 / (M - 1)); }
+  // One gentle flowing wave across the whole journey (slow sine), not a fast zigzag —
+  // reads as a single satisfying curve rather than many small oscillations.
+  function getX(entry, si, amp){
+    var base = 50 + amp * Math.sin(si * 0.55 + 0.3);
+    if (entry.kind === 'level') return base;
+    var side = (entry.breakIndex % 2 === 0) ? 1 : -1;
+    return base + side * 18; // sessions detour further out from the flowing line
+  }
+  // Smooth (Catmull-Rom derived) bezier control points for the segment between
+  // points[i] and points[i+1], using neighbours so adjacent segments share a
+  // matching tangent — draws as one continuous flowing curve even though each
+  // segment is its own <path> (needed so completed vs locked can differ in color).
+  function segmentPath(points, i){
+    var p0 = points[i === 0 ? 0 : i - 1];
+    var p1 = points[i];
+    var p2 = points[i + 1];
+    var p3 = points[i + 2 < points.length ? i + 2 : points.length - 1];
+    var c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6;
+    var c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6;
+    return 'M ' + p1.x.toFixed(2) + ' ' + p1.y.toFixed(2) + ' C ' + c1x.toFixed(2) + ' ' + c1y.toFixed(2) + ', ' + c2x.toFixed(2) + ' ' + c2y.toFixed(2) + ', ' + p2.x.toFixed(2) + ' ' + p2.y.toFixed(2);
+  }
+  function nodeSize(i){ if (i === 0) return 60; if (i === N - 1) return 88; return 72; }
+
+  function loadStatuses(){
+    try {
+      var raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) { var parsed = JSON.parse(raw); if (Array.isArray(parsed) && parsed.length === N) return parsed.map(Boolean); }
+    } catch(e) {}
+    return new Array(N).fill(false);
+  }
+  function saveStatuses(s){ try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch(e) {} }
+  function loadSound(){ try { var v = window.localStorage.getItem(SOUND_KEY); return v === null ? true : v === '1'; } catch(e){ return true; } }
+  function saveSound(v){ try { window.localStorage.setItem(SOUND_KEY, v ? '1' : '0'); } catch(e) {} }
+
+  var statuses = loadStatuses();
+  var soundEnabled = loadSound();
+  var activeIndex = null, lastFocused = null, lastPoints = [];
+
+  function frontierIndex(){ for (var i = 0; i < N; i++){ if (!statuses[i]) return i; } return N; }
+  function statusOf(i){ if (statuses[i]) return 'done'; if (i === frontierIndex()) return 'current'; return 'locked'; }
+  function prefersReducedMotion(){ try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch(e){ return false; } }
+  function seqPassed(si){
+    var e = SEQ[si];
+    if (e.kind === 'level') return !!statuses[e.levelIndex];
+    for (var k = si - 1; k >= 0; k--){ if (SEQ[k].kind === 'level') return !!statuses[SEQ[k].levelIndex]; }
+    return false;
+  }
+
+  var audioCtx = null;
+  function getAudioCtx(){
+    if (audioCtx) return audioCtx;
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+    catch(e) { return null; }
+  }
+  function playTone(freq, duration, delay, type, volume){
+    if (!soundEnabled) return;
+    try {
+      var ctx = getAudioCtx(); if (!ctx) return;
+      if (ctx.state === 'suspended') ctx.resume();
+      var t0 = ctx.currentTime + (delay || 0);
+      var osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.setValueAtTime(freq, t0);
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(volume || 0.14, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0 + duration + 0.05);
+    } catch(e) {}
+  }
+  function playClick(){ playTone(520, 0.1, 0, 'sine', 0.09); }
+  function playComplete(){ playTone(440, 0.16, 0, 'triangle', 0.13); playTone(660, 0.16, 0.12, 'triangle', 0.13); playTone(880, 0.26, 0.24, 'triangle', 0.15); }
+  function playTravel(){
+    if (!soundEnabled) return;
+    try {
+      var ctx = getAudioCtx(); if (!ctx) return;
+      if (ctx.state === 'suspended') ctx.resume();
+      var t0 = ctx.currentTime + 0.15, dur = 2.0;
+      var osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(260, t0);
+      osc.frequency.exponentialRampToValueAtTime(520, t0 + dur * 0.55);
+      osc.frequency.exponentialRampToValueAtTime(340, t0 + dur);
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(0.045, t0 + 0.25);
+      gain.gain.linearRampToValueAtTime(0.045, t0 + dur - 0.3);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0 + dur + 0.05);
+    } catch(e) {}
+  }
+  function playArrive(){ playTone(1046, 0.32, 0, 'sine', 0.13); playTone(1568, 0.32, 0.05, 'sine', 0.07); }
+
+  var nodesLayer, routeLayer, routeGrad, progressFill, progressText, modalBackdrop, modal,
+      modalIcon, modalKicker, modalTitle, modalDuration, modalCurrent, modalProgression, modalNext,
+      modalLaunch, modalLaunchHint, modalToggle, modalClose, modalSection1Title, resetBtn, toastEl, orb, soundToggle;
+
+  function clearSvgLayer(layer){ while (layer.firstChild) layer.removeChild(layer.firstChild); }
+
+  function buildGradientStops(){
+    clearSvgLayer(routeGrad);
+    for (var i = 0; i < N; i++){
+      var stop = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+      stop.setAttribute('offset', (levelSeqIndex[i] / (M - 1) * 100) + '%');
+      stop.setAttribute('stop-color', 'hsl(' + hueForLevel(i) + ',85%,58%)');
+      routeGrad.appendChild(stop);
+    }
+  }
+
+  function positionOrb(animate){
+    var lvlIdx = Math.min(frontierIndex(), N - 1);
+    var si = levelSeqIndex[lvlIdx];
+    var pt = lastPoints[si];
+    if (!pt) return;
+    orb.style.setProperty('--hue', hueForLevel(lvlIdx));
+    if (animate) orb.classList.add('animated'); else orb.classList.remove('animated');
+    orb.style.left = pt.x + '%';
+    orb.style.top = pt.y + '%';
+  }
+
+  // Rounded-corner polygon geometry, so shapes read as soft/cute instead of sharp-edged.
+  var POLY_SHAPES = {
+    triangle: { sides: 3, rot: -90 },
+    diamond: { sides: 4, rot: -90 },
+    pentagon: { sides: 5, rot: -90 },
+    hexagon: { sides: 6, rot: -90 },
+    octagon: { sides: 8, rot: -67.5 }
+  };
+  function regularPolygonPoints(sides, radius, rotationDeg){
+    var pts = [], rot = rotationDeg * Math.PI / 180;
+    for (var k = 0; k < sides; k++){
+      var angle = rot + k * (2 * Math.PI / sides);
+      pts.push({ x: radius * Math.cos(angle), y: radius * Math.sin(angle) });
+    }
+    return pts;
+  }
+  function roundedPolyPath(points, cornerR){
+    var n = points.length, d = '';
+    for (var i = 0; i < n; i++){
+      var curr = points[i], prev = points[(i - 1 + n) % n], next = points[(i + 1) % n];
+      var toPrev = { x: prev.x - curr.x, y: prev.y - curr.y };
+      var toNext = { x: next.x - curr.x, y: next.y - curr.y };
+      var lenPrev = Math.hypot(toPrev.x, toPrev.y), lenNext = Math.hypot(toNext.x, toNext.y);
+      var r = Math.min(cornerR, lenPrev * 0.42, lenNext * 0.42);
+      var p1 = { x: curr.x + toPrev.x / lenPrev * r, y: curr.y + toPrev.y / lenPrev * r };
+      var p2 = { x: curr.x + toNext.x / lenNext * r, y: curr.y + toNext.y / lenNext * r };
+      d += (i === 0 ? 'M ' : 'L ') + p1.x.toFixed(2) + ' ' + p1.y.toFixed(2) + ' ';
+      d += 'Q ' + curr.x.toFixed(2) + ' ' + curr.y.toFixed(2) + ', ' + p2.x.toFixed(2) + ' ' + p2.y.toFixed(2) + ' ';
+    }
+    return d + 'Z';
+  }
+
+  function buildShapeEl(shapeType){
+    if (shapeType === 'cluster'){
+      var cl = document.createElement('span');
+      cl.className = 'cluster';
+      ['a','b','c'].forEach(function(k){
+        var d = document.createElement('span');
+        d.className = 'cluster-dot ' + k;
+        cl.appendChild(d);
+      });
+      return cl;
+    }
+    if (POLY_SHAPES[shapeType]){
+      var cfg = POLY_SHAPES[shapeType];
+      var pts = regularPolygonPoints(cfg.sides, 44, cfg.rot);
+      var pathD = roundedPolyPath(pts, 13);
+      var svgns = 'http://www.w3.org/2000/svg';
+      var svg = document.createElementNS(svgns, 'svg');
+      svg.setAttribute('class', 'poly-svg');
+      svg.setAttribute('viewBox', '-50 -50 100 100');
+      var path = document.createElementNS(svgns, 'path');
+      path.setAttribute('class', 'poly-fill');
+      path.setAttribute('d', pathD);
+      svg.appendChild(path);
+      var shine = document.createElementNS(svgns, 'ellipse');
+      shine.setAttribute('class', 'poly-shine');
+      shine.setAttribute('cx', '-13'); shine.setAttribute('cy', '-15');
+      shine.setAttribute('rx', '15'); shine.setAttribute('ry', '9');
+      shine.setAttribute('transform', 'rotate(-25 -13 -15)');
+      svg.appendChild(shine);
+      var wrap = document.createElement('span');
+      wrap.className = 'node-shape node-shape-svg';
+      wrap.appendChild(svg);
+      return wrap;
+    }
+    var shape = document.createElement('span');
+    shape.className = 'node-shape shape-' + shapeType;
+    return shape;
+  }
+
+  function render(animateOrb, isInitial){
+    var amp = getAmp(), points = [], i;
+    for (i = 0; i < M; i++) points.push({ x: getX(SEQ[i], i, amp), y: getY(i) });
+    lastPoints = points;
+
+    document.getElementById('mapWrap').style.height = 'calc(var(--row-h) * ' + M + ')';
+
+    clearSvgLayer(routeLayer);
+    for (i = 0; i < M - 1; i++){
+      var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', segmentPath(points, i));
+      path.setAttribute('class', 'route ' + (seqPassed(i) ? 'route-lit' : 'route-locked'));
+      routeLayer.appendChild(path);
+    }
+
+    nodesLayer.innerHTML = '';
+    for (i = 0; i < M; i++){
+      var entry = SEQ[i];
+      if (entry.kind === 'level'){
+        var li = entry.levelIndex, lvl = LEVELS[li], st = statusOf(li), hue = hueForLevel(li), px = nodeSize(li);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'level-node node-' + st;
+        btn.style.left = points[i].x + '%';
+        btn.style.top = points[i].y + '%';
+        btn.style.width = px + 'px';
+        btn.style.setProperty('--hue', hue);
+        btn.setAttribute('data-index', li);
+        btn.setAttribute('data-shape', lvl.shape);
+        if (isInitial){ btn.classList.add('entrance'); btn.style.animationDelay = (i * 0.045) + 's'; }
+        btn.setAttribute('aria-label', (lvl.kicker ? lvl.kicker + ': ' : '') + lvl.name + ' — ' +
+          (st === 'done' ? 'completed' : st === 'current' ? 'in progress' : 'locked'));
+
+        var visual = document.createElement('span');
+        visual.className = 'node-visual';
+        visual.style.width = px + 'px'; visual.style.height = px + 'px';
+
+        var plate = document.createElement('span');
+        plate.className = 'node-plate';
+        visual.appendChild(plate);
+
+        var shapeEl = buildShapeEl(lvl.shape);
+        var ic = document.createElement('span');
+        ic.className = lvl.shape === 'cluster' ? 'node-icon cluster-icon' : 'node-icon';
+        ic.textContent = lvl.icon;
+        if (lvl.shape === 'cluster'){ visual.appendChild(shapeEl); visual.appendChild(ic); }
+        else { shapeEl.appendChild(ic); visual.appendChild(shapeEl); }
+
+        var num = document.createElement('span');
+        num.className = 'node-number';
+        num.textContent = String(li);
+        visual.appendChild(num);
+
+        if (st === 'done'){
+          var chk = document.createElement('span');
+          chk.className = 'node-check';
+          chk.setAttribute('aria-hidden', 'true');
+          chk.textContent = '✓';
+          visual.appendChild(chk);
+        }
+
+        var lbl = document.createElement('span');
+        lbl.className = 'node-label';
+        lbl.textContent = lvl.name;
+
+        btn.appendChild(visual);
+        btn.appendChild(lbl);
+        btn.addEventListener('click', (function(idx){ return function(ev){ playClick(); openLevelModal(idx, ev.currentTarget); }; })(li));
+        nodesLayer.appendChild(btn);
+      } else {
+        var sbtn = document.createElement('button');
+        sbtn.type = 'button';
+        sbtn.className = 'session-node';
+        sbtn.style.left = points[i].x + '%';
+        sbtn.style.top = points[i].y + '%';
+        sbtn.setAttribute('aria-label', 'Interactive Session');
+        if (isInitial){ sbtn.classList.add('entrance'); sbtn.style.animationDelay = (i * 0.045) + 's'; }
+
+        var svisual = document.createElement('span');
+        svisual.className = 'node-visual';
+        var splate = document.createElement('span');
+        splate.className = 'session-plate';
+        svisual.appendChild(splate);
+        var dia = document.createElement('span');
+        dia.className = 'diamond-shape';
+        var sic = document.createElement('span');
+        sic.className = 'session-icon';
+        sic.textContent = '💬';
+        dia.appendChild(sic);
+        svisual.appendChild(dia);
+
+        var stxt = document.createElement('span');
+        stxt.className = 'session-label';
+        stxt.textContent = 'Interactive Session';
+
+        sbtn.appendChild(svisual);
+        sbtn.appendChild(stxt);
+        sbtn.addEventListener('click', function(ev){ playClick(); openSessionModal(ev.currentTarget); });
+        nodesLayer.appendChild(sbtn);
+      }
+    }
+
+    var doneCount = statuses.filter(Boolean).length;
+    progressText.textContent = (doneCount === N) ? ('All ' + N + ' stages completed 🎉') : (doneCount + ' of ' + N + ' completed');
+    progressFill.style.width = (doneCount / N * 100) + '%';
+
+    positionOrb(!!animateOrb);
+  }
+
+  function openLevelModal(index, triggerEl){
+    activeIndex = index;
+    lastFocused = triggerEl || document.activeElement;
+    var lvl = LEVELS[index], st = statusOf(index);
+
+    modal.setAttribute('data-mode', 'level');
+    modal.style.setProperty('--hue', hueForLevel(index));
+    modalSection1Title.textContent = 'Before this stage';
+    modalIcon.textContent = lvl.icon;
+    modalKicker.textContent = lvl.kicker;
+    modalTitle.textContent = lvl.name;
+    modalDuration.textContent = lvl.duration + ' (adjust freely)';
+    modalCurrent.textContent = lvl.current;
+    modalProgression.textContent = lvl.progression;
+    modalNext.textContent = lvl.next;
+
+    if (lvl.resourceUrl){
+      modalLaunch.disabled = false;
+      modalLaunch.textContent = 'Open Teaching Material';
+      modalLaunchHint.textContent = '';
+    } else {
+      modalLaunch.disabled = true;
+      modalLaunch.textContent = 'No material linked yet';
+      modalLaunchHint.textContent = 'Add a resourceUrl for this stage in the code to activate this.';
+    }
+
+    modalToggle.textContent = statuses[index] ? 'Mark as incomplete' : 'Mark as Complete';
+    modal.setAttribute('data-status', st);
+
+    modalBackdrop.classList.add('open');
+    document.body.classList.add('modal-open');
+    modalClose.focus();
+    document.addEventListener('keydown', onKeydown);
+  }
+
+  function openSessionModal(triggerEl){
+    activeIndex = null;
+    lastFocused = triggerEl || document.activeElement;
+    modal.setAttribute('data-mode', 'session');
+    modal.removeAttribute('data-status');
+    modalSection1Title.textContent = 'What happens here';
+    modalIcon.textContent = '💬';
+    modalKicker.textContent = 'Detour';
+    modalTitle.textContent = 'Interactive Session';
+    modalCurrent.textContent = SESSION_DESC;
+
+    modalBackdrop.classList.add('open');
+    document.body.classList.add('modal-open');
+    modalClose.focus();
+    document.addEventListener('keydown', onKeydown);
+  }
+
+  function closeModal(){
+    modalBackdrop.classList.remove('open');
+    document.body.classList.remove('modal-open');
+    document.removeEventListener('keydown', onKeydown);
+    if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
+    activeIndex = null;
+  }
+  function onKeydown(ev){ if (ev.key === 'Escape') closeModal(); }
+
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastEl._t);
+    toastEl._t = setTimeout(function(){ toastEl.classList.remove('show'); }, 3200);
+  }
+
+  function burstSpark(originEl, hue){
+    if (prefersReducedMotion()) return;
+    try {
+      var rect = originEl.getBoundingClientRect();
+      for (var k = 0; k < 14; k++){
+        var p = document.createElement('span');
+        p.className = 'spark';
+        var angle = Math.random() * Math.PI * 2, dist = 36 + Math.random() * 46;
+        p.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+        p.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+        p.style.left = (rect.left + rect.width / 2) + 'px';
+        p.style.top = (rect.top + rect.height / 2) + 'px';
+        p.style.background = 'hsl(' + hue + ',85%,60%)';
+        document.body.appendChild(p);
+        (function(el){ setTimeout(function(){ if (el.parentNode) el.parentNode.removeChild(el); }, 750); })(p);
+      }
+    } catch(e) {}
+  }
+
+  // FIX: the modal used to reopen immediately after marking complete, blocking the
+  // progression animation from ever being visible. Now it closes first, THEN the
+  // map re-renders and animates in full view, with the toast confirming the result.
+  function toggleActive(){
+    if (activeIndex === null) return;
+    var idx = activeIndex;
+    statuses[idx] = !statuses[idx];
+    saveStatuses(statuses);
+    var wasMarkedDone = statuses[idx];
+    closeModal();
+    render(wasMarkedDone);
+    if (wasMarkedDone){
+      var triggerEl = nodesLayer.querySelector('.level-node[data-index="' + idx + '"]');
+      if (triggerEl) burstSpark(triggerEl, hueForLevel(idx));
+      playComplete();
+      playTravel();
+      var next = LEVELS[idx + 1];
+      showToast('✓ ' + LEVELS[idx].name + ' completed' + (next ? ' — next: ' + next.name : ' — all stages done!'));
+    }
+  }
+
+  function scrollToFrontier(){
+    try {
+      var lvlIdx = Math.min(frontierIndex(), N - 1);
+      var el = nodesLayer.querySelector('.level-node[data-index="' + lvlIdx + '"]');
+      if (el) el.scrollIntoView({ block: 'center', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+    } catch(e) {}
+  }
+
+  function updateSoundIcon(){ soundToggle.textContent = soundEnabled ? '🔊' : '🔇'; soundToggle.setAttribute('aria-pressed', String(soundEnabled)); }
+
+  var resizeTimer = null;
+  function debouncedResize(){ if (resizeTimer) clearTimeout(resizeTimer); resizeTimer = setTimeout(function(){ render(false); }, 150); }
+
+  function init(){
+    nodesLayer = document.getElementById('nodesLayer');
+    routeLayer = document.getElementById('routeLayer');
+    routeGrad = document.getElementById('routeGrad');
+    progressFill = document.getElementById('progressFill');
+    progressText = document.getElementById('progressText');
+    modalBackdrop = document.getElementById('modalBackdrop');
+    modal = document.getElementById('modal');
+    modalIcon = document.getElementById('modalIcon');
+    modalKicker = document.getElementById('modalKicker');
+    modalTitle = document.getElementById('modalTitle');
+    modalDuration = document.getElementById('modalDuration');
+    modalCurrent = document.getElementById('modalCurrent');
+    modalProgression = document.getElementById('modalProgression');
+    modalNext = document.getElementById('modalNext');
+    modalLaunch = document.getElementById('modalLaunch');
+    modalLaunchHint = document.getElementById('modalLaunchHint');
+    modalToggle = document.getElementById('modalToggle');
+    modalClose = document.getElementById('modalClose');
+    modalSection1Title = document.getElementById('modalSection1Title');
+    resetBtn = document.getElementById('resetBtn');
+    toastEl = document.getElementById('toast');
+    orb = document.getElementById('orb');
+    soundToggle = document.getElementById('soundToggle');
+
+    modalToggle.addEventListener('click', toggleActive);
+    modalClose.addEventListener('click', closeModal);
+    modalLaunch.addEventListener('click', function(){
+      if (activeIndex === null) return;
+      var url = LEVELS[activeIndex].resourceUrl;
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+    });
+    modalBackdrop.addEventListener('click', function(ev){ if (ev.target === modalBackdrop) closeModal(); });
+    resetBtn.addEventListener('click', function(){
+      if (window.confirm('Reset all progress? This can\'t be undone.')) {
+        statuses = new Array(N).fill(false);
+        saveStatuses(statuses);
+        render(false);
+      }
+    });
+    soundToggle.addEventListener('click', function(){
+      soundEnabled = !soundEnabled;
+      saveSound(soundEnabled);
+      updateSoundIcon();
+      if (soundEnabled) playClick();
+    });
+    orb.addEventListener('transitionend', function(){
+      orb.classList.add('arrived');
+      setTimeout(function(){ orb.classList.remove('arrived'); }, 550);
+      try {
+        var lvlIdx = Math.min(frontierIndex(), N - 1);
+        var el = nodesLayer.querySelector('.level-node[data-index="' + lvlIdx + '"]');
+        if (el) burstSpark(el, hueForLevel(lvlIdx));
+      } catch(e) {}
+      playArrive();
+    });
+    window.addEventListener('resize', debouncedResize);
+
+    updateSoundIcon();
+    buildGradientStops();
+    render(false, true);
+    requestAnimationFrame(function(){ requestAnimationFrame(scrollToFrontier); });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+</body>
+</html>
