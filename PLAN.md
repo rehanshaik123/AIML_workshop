@@ -29,3 +29,14 @@ Scope: deploy the existing `index.html` as-is. No redesign, no refactor, no file
 - Direct load blocked by sandbox proxy, as expected. Headless Chromium on the byte-identical `main` `index.html`:
   renders, no JS errors; all 8 level nodes + interactive-session stop open their modal;
   "Mark as Complete" closes the modal immediately, shows toast, persists to localStorage across reload.
+- Confirmed working live by owner.
+
+## Next phase (not started) — resume here
+1. **Per-level materials**: fill each level's `resourceUrl: ''` in the `LEVELS` array in `index.html`.
+   Preferred: files in repo under `materials/level-N/` with relative paths (works on flaky workshop wifi).
+   One level per request.
+2. **Pending design tweaks** (from CLAUDE.md §0, still undone): better title than "From Rules to Reasoning";
+   progression stops fully at interactive sessions; nicer node diagrams; rename Level 5 away from
+   "Generative AI"; rename Level 7 to mention automation + multi-agent; extra outer-page decoration.
+3. **Optional cleanup**: `CLAUDE.md` currently holds the whole setup guide; could be trimmed to just the
+   project-instructions block (§2).
