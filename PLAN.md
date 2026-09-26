@@ -22,3 +22,10 @@ Scope: deploy the existing `index.html` as-is. No redesign, no refactor, no file
 
 ## Files touched
 - `PLAN.md` only (this file), on branch `claude/affectionate-fermi-zjdfj7`. Nothing pushed to `main`.
+
+## Result (2026-09-26)
+- Pages enabled; `github-pages` deployment of `main@66e1722` → **success**.
+- Live URL: https://rehanshaik123.github.io/AIML_workshop/
+- Direct load blocked by sandbox proxy, as expected. Headless Chromium on the byte-identical `main` `index.html`:
+  renders, no JS errors; all 8 level nodes + interactive-session stop open their modal;
+  "Mark as Complete" closes the modal immediately, shows toast, persists to localStorage across reload.
